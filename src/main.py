@@ -14,6 +14,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 YELLOW = (255, 255, 0)
+RED = (255, 0, 0)
 
 # --- Classes ---
 class Player(pygame.sprite.Sprite):
@@ -26,12 +27,10 @@ class Player(pygame.sprite.Sprite):
         self.rect.centerx = SCREEN_WIDTH / 2
         self.rect.bottom = SCREEN_HEIGHT - 10
         self.speed_x = 0
-        # NEW: Add shooting cooldown
-        self.shoot_delay = 250 # milliseconds
+        self.shoot_delay = 250
         self.last_shot = pygame.time.get_ticks()
 
     def update(self):
-        """Update the player's position and handle shooting."""
         self.speed_x = 0
         keystate = pygame.key.get_pressed()
         if keystate[pygame.K_LEFT] or keystate[pygame.K_a]:
@@ -41,17 +40,14 @@ class Player(pygame.sprite.Sprite):
         
         self.rect.x += self.speed_x
 
-        # Keep the player on the screen
         if self.rect.right > SCREEN_WIDTH:
             self.rect.right = SCREEN_WIDTH
         if self.rect.left < 0:
             self.rect.left = 0
 
-        # NEW: Handle shooting
         self.shoot()
 
     def shoot(self):
-        """Create a bullet if the cooldown has passed."""
         now = pygame.time.get_ticks()
         if now - self.last_shot > self.shoot_delay:
             self.last_shot = now
@@ -59,7 +55,6 @@ class Player(pygame.sprite.Sprite):
             all_sprites.add(bullet)
             bullets.add(bullet)
 
-# NEW: The Bullet class
 class Bullet(pygame.sprite.Sprite):
     """Represents a bullet fired by the player."""
     def __init__(self, x, y):
@@ -72,12 +67,30 @@ class Bullet(pygame.sprite.Sprite):
         self.speed_y = -10
 
     def update(self):
-        """Move the bullet up the screen."""
         self.rect.y += self.speed_y
-        # Kill the bullet if it moves off the top of the screen
         if self.rect.bottom < 0:
             self.kill()
 
+# NEW: The Enemy class
+class Enemy(pygame.sprite.Sprite):
+    """Represents an enemy ship."""
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((30, 30))
+        self.image.fill(RED)
+        self.rect = self.image.get_rect()
+        # Spawn at a random x position at the top of the screen
+        self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
+        self.rect.y = random.randrange(-100, -40)
+        self.speed_y = random.randrange(1, 4) # Random downward speed
+
+    def update(self):
+        """Move the enemy down the screen."""
+        self.rect.y += self.speed_y
+        # Kill the enemy if it moves off the bottom of the screen
+        if self.rect.top > SCREEN_HEIGHT:
+            self.kill()
+            # You could deduct a life here in a more complex game
 
 # --- Initialize Pygame and Create Window ---
 pygame.init()
@@ -87,12 +100,19 @@ clock = pygame.time.Clock()
 
 # --- Sprite Groups ---
 all_sprites = pygame.sprite.Group()
-# NEW: A group just for bullets, useful for collision detection later
 bullets = pygame.sprite.Group()
+# NEW: A group for enemies
+enemies = pygame.sprite.Group()
 
 # --- Create Game Objects ---
 player = Player()
 all_sprites.add(player)
+
+# NEW: Create initial enemies
+for i in range(8):
+    enemy = Enemy()
+    all_sprites.add(enemy)
+    enemies.add(enemy)
 
 # --- Game Loop ---
 running = True
@@ -106,6 +126,11 @@ while running:
 
     # Update
     all_sprites.update()
+
+    # NEW: Check for bullet-enemy collisions
+    # This returns a dictionary of all bullets that hit enemies
+    hits = pygame.sprite.groupcollide(enemies, bullets, True, True)
+    # for each hit, the enemy is removed (first True) and the bullet is removed (second True)
 
     # Draw / Render
     screen.fill(BLACK)
