@@ -18,7 +18,6 @@ RED = (255, 0, 0)
 
 # --- Classes ---
 class Player(pygame.sprite.Sprite):
-    """Represents the player's spaceship."""
     def __init__(self):
         super().__init__()
         self.image = pygame.Surface((50, 40))
@@ -56,7 +55,6 @@ class Player(pygame.sprite.Sprite):
             bullets.add(bullet)
 
 class Bullet(pygame.sprite.Sprite):
-    """Represents a bullet fired by the player."""
     def __init__(self, x, y):
         super().__init__()
         self.image = pygame.Surface((5, 10))
@@ -71,48 +69,60 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
 
-# NEW: The Enemy class
 class Enemy(pygame.sprite.Sprite):
-    """Represents an enemy ship."""
     def __init__(self):
         super().__init__()
         self.image = pygame.Surface((30, 30))
         self.image.fill(RED)
         self.rect = self.image.get_rect()
-        # Spawn at a random x position at the top of the screen
         self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
         self.rect.y = random.randrange(-100, -40)
-        self.speed_y = random.randrange(1, 4) # Random downward speed
+        self.speed_y = random.randrange(1, 4)
 
     def update(self):
-        """Move the enemy down the screen."""
         self.rect.y += self.speed_y
-        # Kill the enemy if it moves off the bottom of the screen
         if self.rect.top > SCREEN_HEIGHT:
             self.kill()
-            # You could deduct a life here in a more complex game
+
+# --- Functions ---
+# NEW: Function to start a new game
+def new_game():
+    global player, all_sprites, enemies, bullets, score, game_over
+
+    # Create sprite groups
+    all_sprites = pygame.sprite.Group()
+    enemies = pygame.sprite.Group()
+    bullets = pygame.sprite.Group()
+
+    # Create player
+    player = Player()
+    all_sprites.add(player)
+
+    # Create initial enemies
+    for i in range(8):
+        enemy = Enemy()
+        all_sprites.add(enemy)
+        enemies.add(enemy)
+    
+    # Reset score and game state
+    score = 0
+    game_over = False
 
 # --- Initialize Pygame and Create Window ---
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Space Shooter")
 clock = pygame.time.Clock()
+# NEW: Font for drawing text
+font_name = pygame.font.match_font('arial')
+font = pygame.font.Font(font_name, 30)
 
-# --- Sprite Groups ---
-all_sprites = pygame.sprite.Group()
-bullets = pygame.sprite.Group()
-# NEW: A group for enemies
-enemies = pygame.sprite.Group()
+# NEW: Global variables for game state
+score = 0
+game_over = False
 
-# --- Create Game Objects ---
-player = Player()
-all_sprites.add(player)
-
-# NEW: Create initial enemies
-for i in range(8):
-    enemy = Enemy()
-    all_sprites.add(enemy)
-    enemies.add(enemy)
+# NEW: Start the first game
+new_game()
 
 # --- Game Loop ---
 running = True
@@ -123,18 +133,48 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        # NEW: Check for restart key press
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_r and game_over:
+                new_game()
 
-    # Update
-    all_sprites.update()
+    # UPDATED: Only update game logic if the game is not over
+    if not game_over:
+        # Update
+        all_sprites.update()
 
-    # NEW: Check for bullet-enemy collisions
-    # This returns a dictionary of all bullets that hit enemies
-    hits = pygame.sprite.groupcollide(enemies, bullets, True, True)
-    # for each hit, the enemy is removed (first True) and the bullet is removed (second True)
+        # Check for bullet-enemy collisions
+        hits = pygame.sprite.groupcollide(enemies, bullets, True, True)
+        for hit in hits:
+            score += 10 # Increase score for each enemy destroyed
+            # Spawn a new enemy to keep the challenge going
+            enemy = Enemy()
+            all_sprites.add(enemy)
+            enemies.add(enemy)
+
+        # NEW: Check for player-enemy collisions
+        hits = pygame.sprite.spritecollide(player, enemies, False)
+        if hits:
+            game_over = True # Trigger game over
 
     # Draw / Render
     screen.fill(BLACK)
     all_sprites.draw(screen)
+
+    # NEW: Draw the score
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+
+    # NEW: Draw game over screen if the game is over
+    if game_over:
+        game_over_text = font.render("GAME OVER", True, RED)
+        final_score_text = font.render(f"Final Score: {score}", True, WHITE)
+        restart_text = font.render("Press R to Restart", True, WHITE)
+        
+        # Center the text
+        screen.blit(game_over_text, (SCREEN_WIDTH / 2 - game_over_text.get_width() / 2, SCREEN_HEIGHT / 2 - 60))
+        screen.blit(final_score_text, (SCREEN_WIDTH / 2 - final_score_text.get_width() / 2, SCREEN_HEIGHT / 2))
+        screen.blit(restart_text, (SCREEN_WIDTH / 2 - restart_text.get_width() / 2, SCREEN_HEIGHT / 2 + 40))
 
     # Flip the display
     pygame.display.flip()
